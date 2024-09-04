@@ -4,10 +4,16 @@ import random
 
 WIDTH = 1280
 HEIGHT = 720
+STARSPEED_BG = 1
+STARSPEED_FG = 2
+
+WHITE = (255,255,255)
+BLACK = (0,0,0)
+GREY = (80,80,80)
 
 pygame.init()
 
-#set screen
+#set screen and clock
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Space Fighter")
 clock = pygame.time.Clock()
@@ -18,6 +24,9 @@ thruster_surf = pygame.image.load('pics/thrusters/fire09_left.png').convert_alph
 noz_slow_surf = pygame.image.load('pics/thrusters/nozzle_slow.png').convert_alpha()
 noz_down_surf = pygame.image.load('pics/thrusters/nozzle_down.png').convert_alpha()
 noz_up_surf = pygame.image.load('pics/thrusters/nozzle_up.png').convert_alpha()
+big_star_surf = pygame.image.load('pics/interstellar_obj/star2.png').convert_alpha()
+big_star_surf = pygame.transform.scale(big_star_surf,(6,6)) # resizing
+
 
 class Ships:
     def __init__(self,ship_surf,thruster_surf,noz_slow_surf,noz_down_surf,noz_up_surf):
@@ -46,7 +55,7 @@ class Ships:
         # All ship object rect
         self.player_ship_rect = self.ship_rect.union(self.thruster_rect).union(self.noz_slow_rect).union(self.noz_down_rect).union(self.noz_up_rect)
 
-    def draw(self, screen): # images display
+    def draw_ship(self, screen, keys): # images display
         screen.blit(self.ship_surf, self.ship_rect)
         if keys[pygame.K_d]:
             screen.blit(self.thruster_surf,self.thruster_rect)
@@ -58,7 +67,7 @@ class Ships:
             screen.blit(self.noz_up_surf,self.noz_up_rect)
         
 
-    def move(self, x, y): # image moving
+    def move_ship(self, x, y): # image moving
         new_ship_rect = self.ship_rect.move(x,y) # position control reference
         
         # position check method
@@ -70,6 +79,54 @@ class Ships:
             self.noz_down_rect.move_ip(x, y)
             self.noz_up_rect.move_ip(x, y)
             self.player_ship_rect.move_ip(x, y)
+
+class Stars:
+    def __init__(self, color, x, y, size=1):
+        self.color = color
+        self.x = x
+        self.y = y
+        self.size = size
+        self.speed = random.uniform(0.5, 1.5) # changeing speed
+
+    def move_star (self, dx):
+        self.x += dx*self.speed  # moving from right to left
+        if self.x < 0:   # repositioning on right side
+            self.x = WIDTH + random.randint(0,50)
+            self.y = random.randint(0,HEIGHT)
+    
+    def draw_star(self, screen): # display stars
+        pygame.draw.rect(screen, self.color, (self.x, self.y, self.size, self.size))
+    
+class StarBGLayer:
+    def __init__(self, color, num_stars, speed, big_star_surf=None):
+        self.color = color
+        self.num_stars = num_stars
+        self.speed = speed
+        self.stars = []
+        self.big_star_surf = big_star_surf
+    
+        for _ in range(num_stars): # random position stars creating
+            x = random.randint(0,WIDTH)
+            y = random.randint(0,HEIGHT)
+            if self.big_star_surf and random.random() < 0.5: # 10% chance big_star_surf
+                self.stars.append(Stars(self.color, x, y))
+            else:
+                self.stars.append(Stars(self.color, x, y, size=2))
+    
+    def update(self): # background refresh
+        for star in self.stars:
+            star.move_star(-self.speed)
+    
+    def draw_starbg(self, screen):
+        for star in self.stars:
+            if self.big_star_surf and star.size > 1:
+                screen.blit(self.big_star_surf,(star.x, star.y))
+            else:
+                star.draw_star(screen)
+
+# Creating background layers
+back_layer = StarBGLayer(GREY, 150, 0.5)
+front_layer = StarBGLayer(WHITE, 50, 1, big_star_surf)
 
 # Create ship object
 ship = Ships(ship_surf,thruster_surf,noz_slow_surf,noz_down_surf,noz_up_surf)
@@ -84,18 +141,25 @@ while running:
     # Keyboard control
     keys = pygame.key.get_pressed()
     if keys[pygame.K_d]:
-        ship.move(1,0)
+        ship.move_ship(5,0)
     if keys[pygame.K_a]:
-        ship.move(-1,0)
+        ship.move_ship(-5,0)
     if keys[pygame.K_w]:
-        ship.move(0,-1)
+        ship.move_ship(0,-5)
     if keys[pygame.K_s]:
-        ship.move(0,1)
+        ship.move_ship(0,5)
 
     # Clear screen
-    screen.fill((0,0,0))
-    # display image
-    ship.draw(screen)
+    screen.fill(BLACK)
+    
+    # display and update star bg layers
+    back_layer.update()
+    back_layer.draw_starbg(screen)
+    front_layer.update()
+    front_layer.draw_starbg(screen)
+    
+    # display ship image
+    ship.draw_ship(screen,keys)
 
     #update screen
     pygame.display.update()
